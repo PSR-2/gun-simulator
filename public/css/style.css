@@ -32,6 +32,42 @@ body {
 }
 
 /* =============================================
+   LANDSCAPE OVERLAY (mobile portrait only)
+   ============================================= */
+#landscape-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: var(--bg);
+    z-index: 100000;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+}
+.landscape-icon {
+    font-size: 56px;
+    margin-bottom: 20px;
+    animation: rotate-hint 2s ease-in-out infinite;
+}
+@keyframes rotate-hint {
+    0%, 100% { transform: rotate(0deg); }
+    50%       { transform: rotate(90deg); }
+}
+.landscape-title {
+    font-family: var(--font-hud);
+    font-size: 16px;
+    color: var(--accent);
+    letter-spacing: 3px;
+    margin-bottom: 10px;
+}
+.landscape-sub {
+    font-family: var(--font-body);
+    font-size: 13px;
+    color: var(--text-dim);
+    letter-spacing: 1px;
+}
+
+/* =============================================
    START OVERLAY
    ============================================= */
 #start-overlay {
@@ -244,11 +280,10 @@ aside {
     display: block;
     opacity: 1;
     transform-origin: bottom right;
-    /* Drop shadow for depth */
     filter: drop-shadow(0 8px 24px rgba(0,0,0,0.8));
 }
 
-/* Muzzle flash — sits at barrel tip of 3D gun (right-center area) */
+/* Muzzle flash */
 #muzzle-flash {
     position: absolute;
     right: 4%;
@@ -279,7 +314,6 @@ aside {
 }
 #gesture-status { display: flex; align-items: center; gap: 6px; }
 
-/* Status pip (small dot in gesture status) */
 .status-pip {
     width: 6px; height: 6px; border-radius: 50%;
     background: var(--text-dim); flex-shrink: 0;
@@ -387,3 +421,74 @@ aside {
 .bar { flex: 1; height: 3px; background: #1a1e28; border-radius: 1px; overflow: hidden; }
 .bar-fill { height: 100%; background: var(--accent); border-radius: 1px; }
 .gun-card.active .bar-fill { background: var(--accent); box-shadow: 0 0 4px var(--accent); }
+
+/* =============================================
+   MOBILE — PORTRAIT: show landscape prompt
+   ============================================= */
+@media (max-width: 900px) and (orientation: portrait) {
+    #landscape-overlay {
+        display: flex;
+    }
+}
+
+/* =============================================
+   MOBILE — LANDSCAPE: full game layout
+   ============================================= */
+@media (max-width: 900px) and (orientation: landscape) {
+    body { overflow: auto; }
+
+    #app {
+        padding: 6px 8px 8px;
+        gap: 6px;
+        min-height: 100svh;
+    }
+
+    header {
+        padding-bottom: 6px;
+    }
+    h1 { font-size: 18px; }
+    .header-tag { font-size: 8px; }
+
+    main {
+        grid-template-columns: 150px 1fr 160px;
+        gap: 8px;
+    }
+
+    aside {
+        padding: 8px 10px;
+        gap: 8px;
+    }
+
+    /* Left panel */
+    .inst-icon { font-size: 14px; }
+    .inst-text span { font-size: 10px; }
+    .fc-value { font-size: 20px; }
+
+    /* Game viewport */
+    #game-container {
+        aspect-ratio: 16 / 9;
+        min-height: 0;
+    }
+
+    /* PIP smaller on mobile */
+    #pip-container {
+        width: 100px;
+        height: 88px;
+    }
+    #pip_canvas {
+        height: 74px;
+    }
+
+    /* HUD scale */
+    #hud { padding: 5px 8px; }
+    #current-gun-name { font-size: 11px; }
+    #status-text { font-size: 8px; }
+    .hud-stat { padding: 3px 7px; }
+    .hud-stat-val { font-size: 11px; }
+
+    /* Arsenal cards */
+    .gun-card { padding: 6px 8px; margin-bottom: 3px; }
+    .gun-card-name { font-size: 9px; }
+    .gun-card-type { font-size: 8px; }
+    .bar-row span { font-size: 7px; width: 18px; }
+}

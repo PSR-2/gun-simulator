@@ -25,11 +25,6 @@ class GunScene {
         this.loader     = null;
         this.isLoading  = false;
 
-        // Per-gun config:
-        //   modelRot — corrects each GLB's unique baked-in orientation so barrel points right (+X)
-        //              determined from screenshots: barrel-down models need X=-PI/2, Y=PI/2
-        //   pos      — FPS screen placement [x, y, z]; negative y = lower, positive x = right
-        //   rot      — subtle FPS tilt added on top of modelRot
         this._configs = {
             'desert-eagle': {
                 file: 'deagle.glb',
@@ -52,7 +47,7 @@ class GunScene {
             'ak-47': {
                 file: 'ak47.glb',
                 scale: 1.2,
-                modelRot:  [0, Math.PI, 0],  // flip 180° around Y to face right
+                modelRot:  [0, Math.PI, 0],
                 pos:   [0.0, -0.20, 0.0],
                 rot:   [0.03, 0.0, -0.02],
                 recoilRot:  0.10,
@@ -97,10 +92,7 @@ class GunScene {
         this.renderer.setSize(W, H);
         this.renderer.shadowMap.enabled = true;
         this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-
-        // FIX: outputEncoding (not outputColorSpace) is the correct API for Three.js 0.128.0
         this.renderer.outputEncoding = THREE.sRGBEncoding;
-
         this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
         this.renderer.toneMappingExposure = 1.6;
 
@@ -108,7 +100,7 @@ class GunScene {
         canvas.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:10;';
         this.container.appendChild(canvas);
 
-        // Studio lighting for realistic metals
+        // Studio lighting
         this.scene.add(new THREE.AmbientLight(0x8899bb, 0.5));
 
         const key = new THREE.DirectionalLight(0xfff8f0, 3.5);
@@ -132,10 +124,15 @@ class GunScene {
         front.position.set(0, 0, 5);
         this.scene.add(front);
 
-        // FIX: THREE.GLTFLoader attaches correctly from examples/js build at 0.128.0
         this.loader = new THREE.GLTFLoader();
 
+        // Resize: handles both window resize and orientation change
         window.addEventListener('resize', () => this._onResize());
+        window.addEventListener('orientationchange', () => {
+            // Small delay to let browser finish rotating before measuring
+            setTimeout(() => this._onResize(), 200);
+        });
+
         this._animate();
     }
 
@@ -149,7 +146,6 @@ class GunScene {
         this.isLoading = true;
         this._showLoader(true);
 
-        // Remove old gun
         if (this.gunRoot) {
             this.scene.remove(this.gunRoot);
             this.gunRoot.traverse(o => {
@@ -185,7 +181,6 @@ class GunScene {
                     }
                 });
 
-                // ── Step 1: measure raw bounding box with no rotation ──────────────
                 model.rotation.set(0, 0, 0);
                 model.scale.setScalar(1);
                 model.position.set(0, 0, 0);
@@ -195,32 +190,23 @@ class GunScene {
                 const rawSize = new THREE.Vector3();
                 rawBox.getSize(rawSize);
 
-                // The longest axis is the barrel axis.
-                // We want the barrel (longest dimension) to lie along +X (pointing right).
-                // Determine which world axis is longest and rotate accordingly.
                 const ax = rawSize.x, ay = rawSize.y, az = rawSize.z;
                 const longest = Math.max(ax, ay, az);
 
                 if (longest === ay) {
-                    // Model is tall (barrel points up/down) → rotate -90° around Z so it lies flat,
-                    // then rotate 90° around Y so barrel points right (+X)
                     model.rotation.set(-Math.PI / 2, Math.PI / 2, 0);
                 } else if (longest === az) {
-                    // Model points into screen (barrel along Z) → rotate 90° around Y
                     model.rotation.set(0, Math.PI / 2, 0);
                 } else {
-                    // Already along X — but may be pointing left; flip 180° around Y
                     model.rotation.set(0, Math.PI, 0);
                 }
 
-                // Apply cfg.modelRot as a fine-tune override on top (all zeros = no override)
                 model.rotation.x += cfg.modelRot[0];
                 model.rotation.y += cfg.modelRot[1];
                 model.rotation.z += cfg.modelRot[2];
 
                 model.updateMatrixWorld(true);
 
-                // ── Step 2: scale to fit 1-unit box ───────────────────────────────
                 const box3 = new THREE.Box3().setFromObject(model);
                 const size = new THREE.Vector3();
                 box3.getSize(size);
@@ -228,18 +214,15 @@ class GunScene {
                 const autoScale = (1.0 / maxDim) * cfg.scale;
                 model.scale.setScalar(autoScale);
 
-                // ── Step 3: center at origin ───────────────────────────────────────
                 box3.setFromObject(model);
                 const center = new THREE.Vector3();
                 box3.getCenter(center);
                 model.position.sub(center);
 
-                // ── Step 4: FPS bottom-center placement ───────────────────────────
                 model.position.x += cfg.pos[0];
                 model.position.y += cfg.pos[1];
                 model.position.z += cfg.pos[2];
 
-                // ── Step 5: subtle FPS tilt ────────────────────────────────────────
                 model.rotation.x += cfg.rot[0];
                 model.rotation.z += cfg.rot[2];
 
@@ -294,7 +277,7 @@ class GunScene {
             return;
         }
 
-        // Subtle idle sway
+        // Idle sway
         this.gunRoot.position.y = this._basePos.y + Math.sin(t * 1.1) * 0.0015;
         this.gunRoot.position.x = this._basePos.x + Math.sin(t * 0.7) * 0.0008;
 
@@ -321,6 +304,7 @@ class GunScene {
     _onResize() {
         const W = this.container.clientWidth;
         const H = this.container.clientHeight;
+        if (W === 0 || H === 0) return;
         this.camera.aspect = W / H;
         this.camera.updateProjectionMatrix();
         this.renderer.setSize(W, H);

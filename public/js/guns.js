@@ -51,8 +51,7 @@ const GUN_DATA = {
     }
 };
 
-// Lazy audio getter – creates the Audio object the first time it's
-// needed (which is always after a user gesture → no autoplay block).
+// Lazy audio getter
 Object.defineProperty(GUN_DATA['desert-eagle'], 'audio', { get() { return this._audio || (this._audio = new Audio(this.sound)); } });
 Object.defineProperty(GUN_DATA['magnum'],        'audio', { get() { return this._audio || (this._audio = new Audio(this.sound)); } });
 Object.defineProperty(GUN_DATA['ak-47'],         'audio', { get() { return this._audio || (this._audio = new Audio(this.sound)); } });
@@ -80,8 +79,8 @@ class GunManager {
     }
 
     canFire() {
-        const now        = Date.now();
-        const cooldown   = this.currentGun.fireRate > 0 ? this.currentGun.fireRate : 250;
+        const now      = Date.now();
+        const cooldown = this.currentGun.fireRate > 0 ? this.currentGun.fireRate : 250;
         return (now - this.lastFireTime) > cooldown;
     }
 
@@ -93,3 +92,32 @@ class GunManager {
 
 window.GunManager = GunManager;
 window.GUN_DATA   = GUN_DATA;
+
+// ─────────────────────────────────────────────────────────
+//  LANDSCAPE ENFORCEMENT (mobile only)
+// ─────────────────────────────────────────────────────────
+
+(function () {
+    function checkOrientation() {
+        const overlay  = document.getElementById('landscape-overlay');
+        if (!overlay) return;
+
+        const isMobile  = window.innerWidth <= 900 || /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
+        const isPortrait = window.innerHeight > window.innerWidth;
+
+        overlay.style.display = (isMobile && isPortrait) ? 'flex' : 'none';
+    }
+
+    // Run on load and on every resize / orientation change
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', checkOrientation);
+    } else {
+        checkOrientation();
+    }
+
+    window.addEventListener('resize', checkOrientation);
+    window.addEventListener('orientationchange', function () {
+        // Small delay so browser finishes rotating before we measure
+        setTimeout(checkOrientation, 200);
+    });
+})();
