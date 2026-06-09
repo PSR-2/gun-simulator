@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gun Simulator — Gesture Controlled</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;600;700&family=Orbitron:wght@700;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/style.css">
+    <!-- MediaPipe -->
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
+    <!-- Three.js 0.128.0 — last version with examples/js loaders (attaches to window.THREE) -->
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+</head>
+<body>
+
+<!-- Start Overlay -->
+<div id="start-overlay">
+    <div class="start-content">
+        <h1>GUN <span class="accent">SIM</span></h1>
+        <p>Gesture-controlled weapon simulator</p>
+        <button id="start-btn">INITIALIZE SYSTEM</button>
+        <div class="start-hint">Requires Camera Access &amp; Audio</div>
+    </div>
+</div>
+
+<div id="scanline-overlay"></div>
+<div id="vignette"></div>
+
+<div id="app">
+
+    <!-- HEADER -->
+    <header>
+        <div class="header-left">
+            <span class="header-tag">// GESTURE CONTROL</span>
+            <h1>GUN <span class="accent">SIM</span></h1>
+        </div>
+        <div class="header-right">
+            <div class="status-dot" id="cam-status-dot"></div>
+            <span class="status-label" id="cam-status-label">OFFLINE</span>
+        </div>
+    </header>
+
+    <!-- MAIN LAYOUT -->
+    <main>
+
+        <!-- LEFT PANEL -->
+        <aside id="left-panel">
+            <div class="panel-title">// CONTROLS</div>
+            <div class="instruction-item">
+                <div class="inst-icon">👆</div>
+                <div class="inst-text">
+                    <strong>GESTURE</strong>
+                    <span>Make a finger gun</span>
+                </div>
+            </div>
+            <div class="instruction-item">
+                <div class="inst-icon">💥</div>
+                <div class="inst-text">
+                    <strong>FIRE</strong>
+                    <span>Flick / shake your hand</span>
+                </div>
+            </div>
+            <div class="instruction-item">
+                <div class="inst-icon">🎯</div>
+                <div class="inst-text">
+                    <strong>SWITCH</strong>
+                    <span>Click a weapon card</span>
+                </div>
+            </div>
+            <div class="fire-counter">
+                <div class="fc-label">SHOTS FIRED</div>
+                <div class="fc-value" id="shot-counter">000</div>
+            </div>
+        </aside>
+
+        <!-- CENTER: Game Viewport -->
+        <div id="game-container">
+            <video id="input_video" autoplay playsinline style="display:none;"></video>
+
+            <!-- Hit flash overlay -->
+            <div id="hit-overlay"></div>
+
+            <!-- Muzzle flash — sits above Three.js canvas -->
+            <div id="muzzle-flash"></div>
+
+            <!-- PIP: Hand tracking -->
+            <div id="pip-container">
+                <div class="pip-label">HAND TRACKING</div>
+                <canvas id="pip_canvas" width="160" height="120"></canvas>
+            </div>
+
+            <!-- HUD top-left -->
+            <div id="hud">
+                <div id="current-gun-name">DESERT EAGLE</div>
+                <div id="gesture-status">
+                    <span class="status-pip"></span>
+                    <span id="status-text">WAITING FOR START...</span>
+                </div>
+            </div>
+
+            <!-- Stats top-right -->
+            <div id="hud-right">
+                <div class="hud-stat">
+                    <span class="hud-stat-label">RECOIL</span>
+                    <span class="hud-stat-val" id="hud-recoil">1.0x</span>
+                </div>
+                <div class="hud-stat">
+                    <span class="hud-stat-label">FIRE RATE</span>
+                    <span class="hud-stat-val" id="hud-firerate">SEMI</span>
+                </div>
+            </div>
+
+            <!-- Corner brackets -->
+            <div class="corner tl"></div>
+            <div class="corner tr"></div>
+            <div class="corner bl"></div>
+            <div class="corner br"></div>
+
+            <!-- Legacy gun image (hidden — 3D takes over) -->
+            <div id="gun-overlay" style="display:none;">
+                <img id="gun-image" src="images/deagle.png" alt="Gun">
+            </div>
+        </div>
+
+        <!-- RIGHT PANEL: Arsenal -->
+        <aside id="right-panel">
+            <div class="panel-title">// ARSENAL</div>
+            <div id="inventory">
+                <div class="gun-card active" data-gun="desert-eagle">
+                    <div class="gun-card-inner">
+                        <div class="gun-card-name">DESERT EAGLE</div>
+                        <div class="gun-card-type">PISTOL · SEMI-AUTO</div>
+                        <div class="gun-card-bars">
+                            <div class="bar-row"><span>DMG</span><div class="bar"><div class="bar-fill" style="width:90%"></div></div></div>
+                            <div class="bar-row"><span>SPD</span><div class="bar"><div class="bar-fill" style="width:35%"></div></div></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="gun-card" data-gun="magnum">
+                    <div class="gun-card-inner">
+                        <div class="gun-card-name">MAGNUM</div>
+                        <div class="gun-card-type">REVOLVER · SEMI-AUTO</div>
+                        <div class="gun-card-bars">
+                            <div class="bar-row"><span>DMG</span><div class="bar"><div class="bar-fill" style="width:85%"></div></div></div>
+                            <div class="bar-row"><span>SPD</span><div class="bar"><div class="bar-fill" style="width:40%"></div></div></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="gun-card" data-gun="ak-47">
+                    <div class="gun-card-inner">
+                        <div class="gun-card-name">AK-47</div>
+                        <div class="gun-card-type">RIFLE · FULL-AUTO</div>
+                        <div class="gun-card-bars">
+                            <div class="bar-row"><span>DMG</span><div class="bar"><div class="bar-fill" style="width:70%"></div></div></div>
+                            <div class="bar-row"><span>SPD</span><div class="bar"><div class="bar-fill" style="width:80%"></div></div></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="gun-card" data-gun="ump">
+                    <div class="gun-card-inner">
+                        <div class="gun-card-name">UMP SMG</div>
+                        <div class="gun-card-type">SMG · FULL-AUTO</div>
+                        <div class="gun-card-bars">
+                            <div class="bar-row"><span>DMG</span><div class="bar"><div class="bar-fill" style="width:55%"></div></div></div>
+                            <div class="bar-row"><span>SPD</span><div class="bar"><div class="bar-fill" style="width:95%"></div></div></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="gun-card" data-gun="spas-12">
+                    <div class="gun-card-inner">
+                        <div class="gun-card-name">SPAS-12</div>
+                        <div class="gun-card-type">SHOTGUN · PUMP</div>
+                        <div class="gun-card-bars">
+                            <div class="bar-row"><span>DMG</span><div class="bar"><div class="bar-fill" style="width:100%"></div></div></div>
+                            <div class="bar-row"><span>SPD</span><div class="bar"><div class="bar-fill" style="width:25%"></div></div></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+    </main>
+</div>
+
+<!-- Scripts — order matters -->
+<script src="js/guns.js"></script>
+<script src="js/effects.js"></script>
+<script src="js/gun3d.js"></script>
+<script src="js/gesture.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>
