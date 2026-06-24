@@ -88,10 +88,29 @@ class GestureController {
     }
 
     async start() {
+        // FIX: use `ideal` constraints instead of exact 640x480.
+        // Exact constraints can throw OverconstrainedError on mobile cameras
+        // that don't natively support that resolution/aspect ratio, which
+        // silently breaks camera + MediaPipe init on phones.
         const stream = await navigator.mediaDevices.getUserMedia({
-            video: { width: 640, height: 480 }
+            video: {
+                width:      { ideal: 640 },
+                height:     { ideal: 480 },
+                facingMode: 'user'
+            }
         });
         this.videoElement.srcObject = stream;
+
+        // FIX: ensure video metadata is loaded before MediaPipe Camera starts
+        // pulling frames — on some mobile browsers srcObject assignment
+        // doesn't guarantee readiness on the same tick.
+        await new Promise((resolve) => {
+            if (this.videoElement.readyState >= 2) {
+                resolve();
+            } else {
+                this.videoElement.onloadedmetadata = () => resolve();
+            }
+        });
 
         const camera = new Camera(this.videoElement, {
             onFrame: async () => {

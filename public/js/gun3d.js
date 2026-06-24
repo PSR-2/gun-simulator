@@ -7,10 +7,6 @@
 (function () {
 'use strict';
 
-// ═══════════════════════════════════════════════════════════════════════════
-//  SCENE MANAGER
-// ═══════════════════════════════════════════════════════════════════════════
-
 class GunScene {
     constructor(container) {
         this.container  = container;
@@ -78,8 +74,9 @@ class GunScene {
     }
 
     init() {
-        const W = this.container.clientWidth  || 640;
-        const H = this.container.clientHeight || 480;
+        // FIX: fallback to window dimensions if container isn't laid out yet
+        const W = this.container.clientWidth  || window.innerWidth  || 640;
+        const H = this.container.clientHeight || window.innerHeight || 480;
 
         this.scene = new THREE.Scene();
         this.scene.background = null;
@@ -100,7 +97,6 @@ class GunScene {
         canvas.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:10;';
         this.container.appendChild(canvas);
 
-        // Studio lighting
         this.scene.add(new THREE.AmbientLight(0x8899bb, 0.5));
 
         const key = new THREE.DirectionalLight(0xfff8f0, 3.5);
@@ -126,12 +122,17 @@ class GunScene {
 
         this.loader = new THREE.GLTFLoader();
 
-        // Resize: handles both window resize and orientation change
         window.addEventListener('resize', () => this._onResize());
         window.addEventListener('orientationchange', () => {
-            // Small delay to let browser finish rotating before measuring
             setTimeout(() => this._onResize(), 200);
+            setTimeout(() => this._onResize(), 600);
         });
+
+        // FIX: force re-measure shortly after init — covers cases where the
+        // container had 0/stale size at the moment init() ran (mobile layout
+        // settling, landscape overlay transition, etc.)
+        setTimeout(() => this._onResize(), 300);
+        setTimeout(() => this._onResize(), 1000);
 
         this._animate();
     }
@@ -233,6 +234,10 @@ class GunScene {
                 this.scene.add(model);
                 this.isLoading = false;
                 this._showLoader(false);
+
+                // FIX: re-measure after load too — container size can settle
+                // later on mobile.
+                this._onResize();
             },
             undefined,
             (error) => {
@@ -277,7 +282,6 @@ class GunScene {
             return;
         }
 
-        // Idle sway
         this.gunRoot.position.y = this._basePos.y + Math.sin(t * 1.1) * 0.0015;
         this.gunRoot.position.x = this._basePos.x + Math.sin(t * 0.7) * 0.0008;
 
@@ -302,9 +306,11 @@ class GunScene {
     }
 
     _onResize() {
-        const W = this.container.clientWidth;
-        const H = this.container.clientHeight;
-        if (W === 0 || H === 0) return;
+        // FIX: never bail on 0 — fall back to window size so the renderer
+        // doesn't get stuck at a 0x0 (or stale) viewport on mobile.
+        const W = this.container.clientWidth  || window.innerWidth  || 640;
+        const H = this.container.clientHeight || window.innerHeight || 480;
+        if (!this.camera || !this.renderer) return;
         this.camera.aspect = W / H;
         this.camera.updateProjectionMatrix();
         this.renderer.setSize(W, H);
